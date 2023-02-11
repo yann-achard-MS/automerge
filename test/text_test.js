@@ -1,3 +1,4 @@
+/* eslint-disable no-tabs */
 const assert = require('assert')
 const Automerge = process.env.TEST_DIST === '1' ? require('../dist/automerge') : require('../src/automerge')
 const { assertEqualsOneOf } = require('./helpers')
@@ -194,7 +195,109 @@ function applyDeltaDocToAutomergeText(delta, doc) {
   })
 }
 
-describe('Automerge.Text', () => {
+describe.only('Automerge.Text My Tests', () => {
+	let s1, s2
+	it('Rebase problem', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text('01'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.text.insertAt(0, '!'))
+		s2 = Automerge.change(s2, doc => doc.text.insertAt(1, 'a'))
+		s2 = Automerge.change(s2, doc => doc.text.insertAt(2, 'b'))
+		s2 = Automerge.change(s2, doc => doc.text.insertAt(2, 'x')) // Insert x between a and b
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.text.join(''), '!0abx1', '!0xab1') // Not merged properly
+	})
+
+	it('Concurrent insert at lower index', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text('abc'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.text.insertAt(0, '0'))
+		s2 = Automerge.change(s2, doc => doc.text.insertAt(2, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.text.join(''), '0ab2c', '0ab2c')
+	})
+
+	it('Concurrent insert at same index', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text())
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.text.insertAt(0, '1'))
+		s2 = Automerge.change(s2, doc => doc.text.insertAt(0, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.text.join(''), '12', '21')
+	})
+
+	it('Concurrent remove at same index', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text('a'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.text.insertAt(0, '1'))
+		s2 = Automerge.change(s2, doc => doc.text.deleteAt(0, 1))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.text.join(''), '1', '1')
+	})
+
+	it('Delete over concurrent insert', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text('02'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.text.insertAt(1, '1'))
+		s2 = Automerge.change(s2, doc => doc.text.deleteAt(0, 2))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.text.join(''), '1', '1')
+	})
+
+	it('Insert after replace [index]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = new Automerge.Text('a'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 1)
+				doc.a.insertAt(0, 'z1')
+}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(0, 'z2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), 'z1z2', 'z1z2')
+	})
+
+	it('Insert after replace [index, ...]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = new Automerge.Text('ab'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 2)
+				doc.a.insertAt(0, 'z1')
+}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(0, 'z2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), 'z1z2', 'z1z2')
+	})
+
+	it('Insert after replace [..., index]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = new Automerge.Text('ab'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 2)
+				doc.a.insertAt(0, '1')
+}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(1, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '12')
+	})
+
+	it('Insert after replace [..., index, ...]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = new Automerge.Text('abc'))
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 3)
+				doc.a.insertAt(0, '1')
+}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(1, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '12')
+	})
+
+})
+;describe('Automerge.Text', () => {
   let s1, s2
   beforeEach(() => {
     s1 = Automerge.change(Automerge.init(), doc => doc.text = new Automerge.Text())

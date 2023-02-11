@@ -761,6 +761,103 @@ describe('Automerge', () => {
     })
   })
 
+
+  describe.only('Automerge.Obj My Tests', () => {
+	it('Concurrent clear (insert after)', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.obj = {})
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.obj = {})
+		s2 = Automerge.change(s2, doc => doc.obj.key = '1')
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.obj, {}, {})
+	})
+
+	it('Concurrent clear (insert before)', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.obj = {})
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.obj.key = '1')
+		s2 = Automerge.change(s2, doc => doc.obj = {})
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.obj, {}, {})
+	})
+});
+
+  describe.only('Automerge.Array My Tests', () => {
+	it('Concurrent insert at same index', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = [])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.a.insertAt(0, '1'))
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(0, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '21')
+	});
+
+	it('Delete over concurrent insert', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = ['0', '2'])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => doc.a.insertAt(1, '1'))
+		s2 = Automerge.change(s2, doc => doc.a.deleteAt(0, 2))
+		s1 = Automerge.merge(s1, s2)
+        assert.deepStrictEqual(s1.a.join(''), '1')
+	})
+
+	it('Insert at index vs replace [index]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = ['a'])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 1)
+				doc.a.insertAt(0, '1')
+			}
+		)
+		s2 = Automerge.change(s2, doc => {
+			doc.z = {} // Dummy op to get the operation counter up. See https://github.com/automerge/automerge/issues/411#issuecomment-863631591.
+			doc.a.insertAt(0, '2')
+		})
+		s1 = Automerge.merge(s1, s2)
+        assert.deepStrictEqual(s1.a.join(''), '12')
+	})
+
+	it('Insert after replace [index, ...]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = ['a', 'b'])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 2)
+				doc.a.insertAt(0, '1')}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(0, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '12')
+	})
+
+	it('insert after replace [..., index]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = ['a', 'b'])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 2)
+				doc.a.insertAt(0, '1')}
+			);
+		s2 = Automerge.change(s2, doc => {
+			doc.z = {} // Dummy op to get the operation counter up. See https://github.com/automerge/automerge/issues/411#issuecomment-863631591.
+			doc.z = {} // Dummy op to get the operation counter up. See https://github.com/automerge/automerge/issues/411#issuecomment-863631591.
+			doc.a.insertAt(0, '2')
+		})
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '12')
+	})
+
+	it('insert after replace [..., index, ...]', () => {
+		s1 = Automerge.change(Automerge.init(), doc => doc.a = ['a', 'b', 'c'])
+		s2 = Automerge.merge(Automerge.init(), s1)
+		s1 = Automerge.change(s1, doc => {
+				doc.a.deleteAt(0, 3)
+				doc.a.insertAt(0, '1')}
+			)
+		s2 = Automerge.change(s2, doc => doc.a.insertAt(1, '2'))
+		s1 = Automerge.merge(s1, s2)
+		assertEqualsOneOf(s1.a.join(''), '12', '12')
+	})
+});
+
   describe('concurrent use', () => {
     let s1, s2, s3
     beforeEach(() => {
